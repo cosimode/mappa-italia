@@ -170,15 +170,17 @@ function App() {
                 if (!username) { throw new Error("Inserisci un nome utente."); }
 
                 // Controllo Password
-                const pwdError = validatePassword(password);
-                if (pwdError) { throw new Error(pwdError); }
+                // Cerca questo blocco dentro handleAuth e modificalo così:
 
                 const { data, error } = await supabase.auth.signUp({
                     email,
                     password,
                     options: {
-                        emailRedirectTo: window.location.origin,
-                        // Salviamo lo username nei metadati dell'utente
+                        // MODIFICA QUI: Aggiungiamo il percorso corretto per GitHub Pages
+                        emailRedirectTo: window.location.origin.includes('localhost')
+                            ? 'http://localhost:5173'
+                            : 'https://cosimode.github.io/mappa-italia/', // <--- IL TUO LINK COMPLETO
+
                         data: { username: username }
                     }
                 });
