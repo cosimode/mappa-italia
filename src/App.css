@@ -1,79 +1,96 @@
+/* --- IMPORTAZIONI --- */
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
 
+/* --- BASE --- */
 body {
     margin: 0;
     padding: 0;
     font-family: 'Poppins', sans-serif;
     overflow: hidden;
     background-color: #f0f2f5;
+    -webkit-tap-highlight-color: transparent;
 }
 
-/* Rimuove i bordi blu di selezione al click sulla mappa */
-.leaflet-interactive:focus {
-    outline: none;
-}
-path.leaflet-interactive {
+/* Rimuove bordi focus Leaflet */
+.leaflet-interactive:focus, path.leaflet-interactive {
     outline: none;
 }
 
-/* --- PANNELLO CONTROLLO (GLASSMORPHISM) --- */
+/* --- PANNELLO CONTROLLO (DESKTOP DEFAULT) --- */
 .control-panel {
     position: absolute;
     top: 20px;
     left: 20px;
     width: 320px;
-    /* Effetto Vetro */
-    background: rgba(255, 255, 255, 0.85);
+    max-height: 85vh;
+    background: rgba(255, 255, 255, 0.9);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.3);
-
+    border: 1px solid rgba(255, 255, 255, 0.5);
     padding: 24px;
     border-radius: 20px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
     z-index: 1000;
-    transition: all 0.3s ease;
-    max-height: 85vh;
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
     overflow-y: auto;
+    box-sizing: border-box;
 }
 
-/* Titolo */
+/* Header Pannello */
+.panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    cursor: default; /* Non cliccabile su desktop */
+}
+
 .control-panel h1 {
-    margin: 0 0 5px 0;
+    margin: 0;
     font-size: 1.5rem;
     color: #1a1a1a;
     letter-spacing: -0.5px;
 }
+
 .subtitle {
-    margin: 0 0 20px 0;
+    margin: 0;
     font-size: 0.85rem;
     color: #666;
     font-weight: 400;
 }
 
-.control-group {
-    margin-bottom: 24px;
+/* Icona Menu (Nascosta su Desktop) */
+.menu-icon-container {
+    display: none;
 }
+
+/* --- CONTENUTO PANNELLO --- */
+.panel-content {
+    opacity: 1;
+    transition: opacity 0.3s;
+}
+
+.control-group { margin-bottom: 24px; }
 
 label {
     display: block;
     margin-bottom: 8px;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     text-transform: uppercase;
     letter-spacing: 1px;
     color: #888;
-    font-weight: 600;
+    font-weight: 700;
 }
 
-/* Input di ricerca stiloso */
+/* --- INPUT & SEARCH --- */
 .search-input {
     width: 100%;
     padding: 12px 16px;
-    border: none;
+    border: 1px solid #e2e8f0;
     border-radius: 12px;
-    background: #f0f2f5;
+    background: #f8fafc;
     color: #333;
-    font-family: 'Poppins', sans-serif;
+    font-family: inherit;
     font-size: 0.95rem;
     box-sizing: border-box;
     transition: all 0.2s;
@@ -83,17 +100,17 @@ label {
 .search-input:focus {
     outline: none;
     background: #fff;
-    box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.3);
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
-/* Risultati Ricerca */
 .search-results {
     list-style: none;
     padding: 0;
     margin: 10px 0 0 0;
     background: white;
     border-radius: 12px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
     max-height: 180px;
     overflow-y: auto;
     border: 1px solid #eee;
@@ -108,17 +125,13 @@ label {
     transition: background 0.2s;
 }
 
-.search-result-item:last-child {
-    border-bottom: none;
-}
-
 .search-result-item:hover {
-    background-color: #e6f7ff;
+    background-color: #f0f9ff;
     color: #007bff;
     font-weight: 600;
 }
 
-/* --- COLOR PICKER PERSONALIZZATO --- */
+/* --- COLOR PICKER --- */
 .color-options {
     display: flex;
     gap: 10px;
@@ -126,141 +139,54 @@ label {
 }
 
 .color-circle {
-    width: 42px !important;      /* Larghezza fissa */
-    height: 42px !important;     /* Altezza fissa */
-    min-height: 42px !important; /* Sovrascrive il min-height globale che li deformava */
-    min-width: 42px !important;  /* Sovrascrive eventuali larghezze minime */
-    border-radius: 50%;          /* Cerchio perfetto */
-    flex-shrink: 0;              /* Evita che si schiaccino se ne aggiungi troppi */
-    margin-bottom: 5px;          /* Un po' di spazio sotto */
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    cursor: pointer;
+    flex-shrink: 0;
+    border: 2px solid transparent;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
-.color-circle:hover {
-    transform: scale(1.1);
-}
-
+.color-circle:hover { transform: scale(1.1); }
 .color-circle.selected {
     border-color: #333;
     transform: scale(1.15);
     box-shadow: 0 4px 8px rgba(0,0,0,0.2);
 }
 
-/* Footer stats */
-.stats {
-    margin-top: 30px;
-    padding-top: 15px;
-    border-top: 1px solid #eee;
+/* --- AUTH & USER --- */
+.auth-section {
+    background: #f1f5f9;
+    padding: 15px;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    margin-bottom: 20px;
+}
+
+.user-header-row {
     display: flex;
-    flex-direction: column; /* <--- QUESTA è la chiave: impila gli elementi verticalmente */
-    align-items: center;    /* Centra tutto orizzontalmente */
-    gap: 5px;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #f1f5f9;
 }
 
-.stat-number {
-    font-size: 1.2rem;
-    font-weight: 700;
-    color: #1a1a1a;
-}
+.welcome-text { font-size: 0.95rem; color: #333; }
 
-/* Adattamento Mobile: Barra in basso */
-@media (max-width: 600px) {
-    .control-panel {
-        top: auto;
-        bottom: 20px;
-        left: 20px;
-        right: 20px;
-        width: auto;
-        max-height: 40vh; /* Pannello più piccolo su mobile */
-    }
-}
-
-.modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.5);
-    z-index: 10000 !important;
-
-    /* QUESTI 3 SONO FONDAMENTALI PER CENTRARE */
-    display: flex;
-    align-items: center;     /* Centra verticalmente */
-    justify-content: center; /* Centra orizzontalmente */
-
-    backdrop-filter: blur(3px);
-}
-
-/* --- MODALE POPUP (Versione Desktop) --- */
-.modal-content {
-    background: white;
-    padding: 30px;
-    border-radius: 20px;
-
-    /* FORZATURA DIMENSIONI */
-    width: 350px !important;    /* Larghezza fissa piccola */
-    max-width: 350px !important; /* Non può mai diventare più grande di così */
-    height: auto !important;     /* L'altezza si adatta al testo */
-
-    /* Posizionamento */
-    margin: 0 auto;             /* Centrato */
-    text-align: center;
-    box-shadow: 0 20px 40px rgba(0,0,0,0.3);
-
-    /* Animazione */
-    animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    position: relative;
-}
-
-.modal-actions {
-    display: flex;
-    gap: 15px;
-    justify-content: center;
-    margin-top: 20px;
-}
-
-.modal-actions button {
+.logout-btn {
+    padding: 6px 12px;
+    font-size: 0.75rem;
+    border-radius: 8px;
+    background: #f1f5f9;
+    color: #64748b;
     border: none;
-    padding: 10px 20px;
-    border-radius: 8px;
-    font-weight: 600;
     cursor: pointer;
-    transition: transform 0.1s;
+    transition: all 0.2s;
 }
-
-.modal-actions button:active { transform: scale(0.95); }
-
-.btn-cancel { background: #edf2f7; color: #4a5568; }
-.btn-confirm { color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-.btn-delete { background: #fff5f5; color: #c53030; border: 1px solid #feb2b2 !important; }
-
-@keyframes popIn {
-    from { transform: scale(0.9); opacity: 0; }
-    to { transform: scale(1); opacity: 1; }
-}
-
-/* Aggiungi questo nel tuo App.css */
-
-/* Stile per il pulsante Statistiche */
-.stats-button {
-    background: #4a5568; /* Grigio scuro elegante */
-    color: white;
-    padding: 8px 12px;
-    border-radius: 8px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    cursor: pointer;
-}
-
-/* Modale Statistiche - Pulsanti nel modale */
-.modal-actions {
-    margin-top: 20px;
-}
-.btn-delete {
-    background: #f8d7da; /* Rosso chiaro */
-    color: #721c24;
-    border: 1px solid #f5c6cb;
-}
+.logout-btn:hover { background: #e2e8f0; color: #333; }
 
 /* --- PROGRESS BAR --- */
 .progress-label {
@@ -275,7 +201,7 @@ label {
 .progress-track {
     width: 100%;
     height: 10px;
-    background-color: #e2e8f0; /* Grigio chiaro sfondo */
+    background-color: #e2e8f0;
     border-radius: 10px;
     overflow: hidden;
     box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
@@ -284,266 +210,21 @@ label {
 .progress-fill {
     height: 100%;
     border-radius: 10px;
-    transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s ease;
-    /* Effetto lucido sulla barra */
+    transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
     background-image: linear-gradient(45deg, rgba(255,255,255,0.15) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.15) 50%, rgba(255,255,255,0.15) 75%, transparent 75%, transparent);
     background-size: 1rem 1rem;
 }
 
-body {
-    margin: 0;
-    padding: 0;
-    font-family: 'Poppins', sans-serif;
-    overflow: hidden;
-    background-color: #f0f2f5;
-    -webkit-tap-highlight-color: transparent; /* Rimuove il flash blu su mobile */
-}
-
-.leaflet-interactive:focus, path.leaflet-interactive {
-    outline: none;
-}
-
-/* --- PANNELLO CONTROLLO (Base Desktop) --- */
-.control-panel {
-    position: absolute;
-    top: 20px;
-    left: 20px;
-    width: 300px;
-    background: rgba(255, 255, 255, 0.9);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    padding: 20px;
-    border-radius: 20px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-    z-index: 1000;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    max-height: 85vh;
-    overflow-y: auto;
-    border: 1px solid rgba(255,255,255,0.5);
-}
-
-/* Header del pannello */
-.panel-header {
+/* --- FOOTER & BOTTONI --- */
+.stats {
+    margin-top: 30px;
+    padding-top: 15px;
+    border-top: 1px solid #eee;
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    cursor: default;
+    flex-direction: column;
+    gap: 10px;
 }
 
-.control-panel h1 {
-    margin: 0;
-    font-size: 1.4rem;
-    color: #1a1a1a;
-    letter-spacing: -0.5px;
-}
-.subtitle {
-    margin: 0;
-    font-size: 0.8rem;
-    color: #666;
-}
-
-/* Nascondi freccia su desktop */
-.mobile-toggle-icon {
-    display: none;
-}
-
-/* Elementi Form */
-.control-group { margin-bottom: 20px; }
-label { display: block; margin-bottom: 6px; font-size: 0.75rem; text-transform: uppercase; color: #888; font-weight: 700; letter-spacing: 0.5px; }
-
-.search-input {
-    width: 100%;
-    padding: 12px;
-    border: 1px solid #e2e8f0;
-    border-radius: 10px;
-    background: #f8fafc;
-    color: #333;
-    font-family: inherit;
-    font-size: 0.95rem;
-    box-sizing: border-box;
-}
-.search-input:focus { outline: none; border-color: #3b82f6; background: #fff; }
-
-/* Risultati Ricerca */
-.search-results {
-    list-style: none; padding: 0; margin: 5px 0 0 0;
-    background: white; border-radius: 10px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-    max-height: 150px; overflow-y: auto;
-}
-.search-result-item { padding: 10px 15px; cursor: pointer; border-bottom: 1px solid #f1f1f1; font-size: 0.9rem; }
-.search-result-item:hover { background-color: #f0f9ff; color: #007bff; }
-
-/* Colori */
-.color-options { display: flex; gap: 8px; flex-wrap: wrap; }
-.color-circle {
-    width: 30px; height: 30px; border-radius: 50%; cursor: pointer;
-    border: 2px solid transparent; transition: transform 0.2s;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-.color-circle.selected { border-color: #333; transform: scale(1.15); }
-
-/* Progress Bar */
-.progress-label { display: flex; justify-content: space-between; font-size: 0.8rem; font-weight: 600; color: #444; margin-bottom: 5px; }
-.progress-track { width: 100%; height: 8px; background-color: #e2e8f0; border-radius: 10px; overflow: hidden; }
-.progress-fill { height: 100%; border-radius: 10px; transition: width 0.8s ease; }
-
-/* Auth Box */
-.auth-section { background: #f1f5f9; padding: 15px; border-radius: 12px; border: 1px solid #e2e8f0; }
-/* --- NUOVO HEADER UTENTE --- */
-.user-header-row {
-    display: flex;
-    justify-content: space-between; /* Spinge il testo a sinistra e il bottone a destra */
-    align-items: center;            /* Allinea verticalmente al centro */
-    margin-bottom: 20px;            /* Spazio prima della barra di progresso */
-    padding-bottom: 10px;
-    border-bottom: 1px solid #f1f5f9; /* Una linea sottilissima di separazione */
-}
-
-.welcome-text {
-    font-size: 0.95rem;
-    color: #333;
-}
-
-/* Stile specifico per il tasto Esci in questa posizione */
-.logout-btn {
-    padding: 6px 12px;     /* Più piccolo e compatto */
-    font-size: 0.75rem;    /* Testo piccolo */
-    border-radius: 8px;
-    background: #f1f5f9;   /* Grigio chiaro (stile btn-cancel) */
-    color: #64748b;
-    border: none;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.logout-btn:hover {
-    background: #e2e8f0;
-    color: #333;
-}
-
-/* Modali Overlay */
-.modal-overlay {
-    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0, 0, 0, 0.4);
-    z-index: 2000;
-    display: flex; align-items: center; justify-content: center;
-    backdrop-filter: blur(2px);
-    animation: fadeIn 0.2s ease;
-}
-
-.modal-content {
-    background: white; padding: 25px; border-radius: 20px;
-    width: 90%; max-width: 380px; text-align: center;
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-    animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.modal-actions { display: flex; gap: 10px; justify-content: center; margin-top: 20px; }
-.modal-actions button { border: none; padding: 12px 24px; border-radius: 10px; font-weight: 600; cursor: pointer; font-size: 0.95rem; }
-.btn-cancel { background: #f1f5f9; color: #64748b; }
-.btn-confirm { color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-.btn-delete { background: #fef2f2; color: #ef4444; border: 1px solid #fee2e2 !important; }
-
-/* Animazioni */
-@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-@keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-
-@media (max-width: 768px) {
-    /* Il pannello diventa un "Bottom Sheet" */
-    .control-panel {
-        position: fixed !important;
-        bottom: 0;
-        left: 0;
-        width: 100%;
-        max-height: 85vh;
-        border-radius: 25px 25px 0 0;
-        padding: 20px 25px;
-        box-sizing: border-box;
-
-        /* FONDAMENTALE: Sfondo bianco e Z-Index altissimo per stare sopra la mappa */
-        background-color: #ffffff;
-        z-index: 9999 !important;
-
-        /* MODIFICA CRUCIALE: */
-        /* Alziamo il menu di 130px quando è chiuso. */
-        /* 65px erano troppo pochi e venivano coperti dalla barra del browser. */
-        transform: translateY(calc(100% - 130px));
-
-        transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-        border: none;
-
-        /* Ombra più scura verso l'alto per farlo risaltare sulla mappa */
-        box-shadow: 0 -5px 25px rgba(0,0,0,0.3);
-
-        /* Niente scrollbar quando è chiuso */
-        overflow-y: hidden;
-    }
-
-    /* Quando è aperto */
-    .control-panel.open {
-        transform: translateY(0);
-        /* Lo scroll appare SOLO quando il pannello è aperto */
-        overflow-y: auto;
-        /* Aggiungiamo padding extra in fondo per non far tagliare l'ultimo elemento */
-        padding-bottom: 80px;
-    }
-
-    /* Header cliccabile su mobile */
-    .panel-header {
-        cursor: pointer;
-        padding-bottom: 15px; /* Più spazio per il tocco */
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-
-    /* Contenitore dell'icona menu (Visibile solo su mobile) */
-    .menu-icon-container {
-        display: flex !important; /* Forza la visualizzazione su mobile */
-        cursor: pointer;
-        padding: 8px;
-        border-radius: 50%;
-        background-color: #f8f9fa; /* Grigio chiaro per evidenziare il bottone */
-        transition: background-color 0.2s;
-    }
-
-    /* Nascondi la vecchia freccia se presente */
-    .mobile-toggle-icon {
-        display: none !important;
-    }
-}
-    .menu-icon-container:active {
-        background-color: #f0f0f0; /* Effetto click */
-    }
-
-/* --- GESTIONE TESTI RESPONSIVE --- */
-
-/* Di base (Desktop): Nascondi testo mobile, mostra testo desktop */
-.mobile-text {
-    display: none;
-}
-
-.desktop-text {
-    display: inline;
-}
-
-/* Su Mobile: Inverti la visibilità */
-@media (max-width: 768px) {
-    .mobile-text {
-        display: inline;
-        font-weight: 500;
-        color: #3b82f6; /* Un po' di colore blu per far capire che è cliccabile */
-    }
-
-    .desktop-text {
-        display: none;
-    }
-}
-
-/* --- NUOVI BOTTONI ELEGANTI --- */
-
-/* Stile base per i bottoni nel footer */
 .stats-button {
     width: 100%;
     display: flex;
@@ -557,176 +238,375 @@ label { display: block; margin-bottom: 6px; font-size: 0.75rem; text-transform: 
     cursor: pointer;
     transition: all 0.2s ease;
     border: none;
-    margin-bottom: 10px;
 }
 
-/* Bottone Statistiche (Primario - Blu scuro/Nero) */
-.primary-btn {
-    background-color: #334155;
-    color: white;
-}
+.primary-btn { background-color: #334155; color: white; }
 .primary-btn:hover { background-color: #1e293b; }
 
-/* Bottone Download (Secondario - Blu brillante per risaltare) */
-.download-btn {
-    background-color: #3b82f6;
-    color: white;
-}
+.download-btn { background-color: #3b82f6; color: white; }
 .download-btn:hover { background-color: #2563eb; }
 .download-btn:disabled { opacity: 0.7; cursor: wait; }
 
-
-/* Bottone Caffè (Discreto ma invitante) */
 .coffee-btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    margin-top: 5px; padding: 10px 20px;
+    background-color: #fffbeb; color: #92400e;
+    border: 1px solid #fcd34d; border-radius: 50px;
+    text-decoration: none; font-weight: 600; font-size: 0.9rem;
+    transition: all 0.2s;
+}
+.coffee-btn:hover { background-color: #fef3c7; transform: translateY(-2px); }
+
+.credits-footer {
+    margin-top: 15px; font-size: 0.65rem; color: #cbd5e1; text-align: center;
+}
+.credits-footer a { color: #94a3b8; text-decoration: none; }
+.credits-footer a:hover { color: #64748b; text-decoration: underline; }
+
+/* --- MODALI (Overlay Comune) --- */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 10000 !important;
+    backdrop-filter: blur(3px);
     display: flex;
+    /* Default Desktop: Centrato */
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    margin-top: 15px; /* Spazio sopra */
-    padding: 10px 20px;
-    background-color: #fffbeb; /* Giallino molto chiaro */
-    color: #92400e; /* Marrone caffè */
-    border: 1px solid #fcd34d;
-    border-radius: 50px; /* Pillola */
-    text-decoration: none;
-    font-weight: 600;
-    font-size: 0.9rem;
-    transition: all 0.2s;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    animation: fadeIn 0.2s ease;
 }
 
-.coffee-btn:hover {
-    background-color: #fef3c7;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-}
-
-    /* AGGIORNAMENTO MEDIA QUERY MOBILE */
-    @media (max-width: 768px) {
-        /* Mostriamo l'icona solo su mobile */
-        .menu-icon-container {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        /* Nascondiamo la vecchia icona se è rimasta nel codice */
-        .mobile-toggle-icon {
-            display: none !important;
-        }
-
-        /* Aggiustiamo il padding dell'header per far stare l'icona comoda */
-        .panel-header {
-            padding-right: 5px;
-        }
-    }
-
-    .control-panel.open .mobile-toggle-icon {
-        transform: rotate(180deg);
-    }
-
-    /* Contenuto interno: lo nascondiamo visivamente quando chiuso per evitare focus strani */
-    .panel-content {
-        opacity: 1;
-        transition: opacity 0.3s;
-    }
-    /* Opzionale: sfuma il contenuto quando chiuso
-       .control-panel:not(.open) .panel-content { opacity: 0.5; pointer-events: none; }
-    */
-
-    /* Modale in basso su mobile (stile iOS) */
-    .modal-overlay {
-        align-items: flex-end; /* Allinea in basso */
-    }
-/* MODALE SU MOBILE: Più compatto */
+/* Modale Content Desktop */
 .modal-content {
-    width: 100%;
-    max-width: 100%;
-
-    /* ISTRUZIONI PER L'ALTEZZA */
-    height: auto;        /* Si adatta al contenuto (non forza l'altezza) */
-    max-height: 50vh;    /* NON supera mai il 50% dello schermo */
-    overflow-y: auto;    /* Se il contenuto è troppo lungo, scorre dentro */
-
-    border-radius: 25px 25px 0 0; /* Arrotondato sopra */
-    margin: 0;
-    padding: 25px 20px 40px 20px; /* Spaziatura interna */
+    background: white;
+    padding: 30px;
+    border-radius: 20px;
+    width: 350px;
+    max-width: 90%;
+    text-align: center;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+    animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     position: relative;
 }
 
-/* Aggiunge una piccola "maniglia" grigia sopra per far capire che si può chiudere */
-.modal-content::before {
-    content: '';
-    position: absolute;
-    top: 10px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 40px;
-    height: 5px;
-    background-color: #e2e8f0;
-    border-radius: 10px;
+.modal-actions { display: flex; gap: 15px; justify-content: center; margin-top: 20px; }
+.modal-actions button { padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; border: none; }
+.btn-cancel { background: #edf2f7; color: #4a5568; }
+.btn-confirm { color: white; }
+.btn-delete { background: #fef2f2; color: #ef4444; border: 1px solid #fee2e2; }
+
+/* Animazioni Modale */
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes popIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+
+/* --- GESTIONE TESTI RESPONSIVE --- */
+.mobile-text { display: none; }
+.desktop-text { display: inline; }
+
+
+/* ==========================================================================
+   MEDIA QUERIES (MOBILE ONLY)
+   ========================================================================== */
+@media (max-width: 768px) {
+
+    /* 1. PANNELLO COME BOTTOM SHEET */
+    .control-panel {
+        position: fixed !important;
+        top: auto;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        max-height: 85vh;
+        border-radius: 25px 25px 0 0;
+        padding: 20px 25px 80px 25px; /* Extra padding bottom per scroll */
+        background-color: #ffffff;
+        z-index: 9999 !important;
+        border: none;
+        box-shadow: 0 -5px 25px rgba(0,0,0,0.2);
+
+        /* STATO CHIUSO: Si vede solo l'header (circa 130px) */
+        transform: translateY(calc(100% - 85px));
+        overflow-y: hidden; /* Niente scroll quando chiuso */
+    }
+
+    /* STATO APERTO */
+    .control-panel.open {
+        transform: translateY(0);
+        overflow-y: auto;
+    }
+
+    /* Header Cliccabile su Mobile */
+    .panel-header {
+        cursor: pointer;
+        padding-bottom: 10px;
+    }
+
+    /* Icona Menu Visibile */
+    .menu-icon-container {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 8px;
+        border-radius: 50%;
+        background-color: #f1f5f9;
+    }
+
+    /* Testi Header */
+    .mobile-text { display: inline; font-weight: 500; color: #3b82f6; }
+    .desktop-text { display: none; }
+
+    /* 2. MODALE MOBILE (Stile iOS Bottom Sheet) */
+    .modal-overlay {
+        align-items: flex-end; /* Spinge il modale in basso */
+    }
+
+    .modal-content {
+        width: 100%;
+        max-width: 100%;
+        border-radius: 25px 25px 0 0;
+        margin: 0;
+        padding: 25px 20px 40px 20px;
+        animation: slideUp 0.3s ease-out;
+        max-height: 80vh; /* Evita che copra tutto se c'è molto testo */
+        overflow-y: auto;
+    }
+
+    /* Maniglia modale mobile */
+    .modal-content::before {
+        content: '';
+        position: absolute;
+        top: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 40px;
+        height: 5px;
+        background-color: #e2e8f0;
+        border-radius: 10px;
+    }
+
+    /* Bottoni Touch-Friendly */
+    .search-input, .stats-button, .modal-actions button {
+        min-height: 48px;
+    }
 }
 
-    /* Bottoni più grandi per le dita */
-    .modal-actions button, .search-input, .color-circle {
-        min-height: 48px; /* Standard touch target */
-    }
-    .color-circle { width: 40px; height: 40px; }
+/* --- LEADERBOARD (CLASSIFICA) --- */
 
-    .stats-button {
-        padding: 15px;
-    }
+/* Pannello Desktop (fisso a destra) */
+.leaderboard-panel {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    width: 220px;
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    padding: 20px;
+    border-radius: 20px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    transition: all 0.3s ease;
+}
 
-/* --- FOOTER CREDITI --- */
-.credits-footer {
-    margin-top: 25px;
-    font-size: 0.65rem;
-    color: #cbd5e1; /* Grigio molto chiaro per non disturbare */
-    text-align: center;
+.leaderboard-header {
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #333;
+    border-bottom: 1px solid #eee;
     padding-bottom: 10px;
 }
 
-.credits-footer a {
-    color: #94a3b8;
-    text-decoration: none;
-    transition: color 0.2s;
+.leaderboard-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
 }
 
-.credits-footer a:hover {
-    color: #64748b;
-    text-decoration: underline;
+.leaderboard-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #f5f5f5;
+    font-size: 0.9rem;
 }
 
-/* Assicuriamo che il bottone statistiche allinei bene l'icona */
-.stats-button svg {
-    margin-right: 5px;
+.leaderboard-item:last-child {
+    border-bottom: none;
 }
 
-/* --- PATCH CORRETTIVA MENU --- */
-
-/* 1. SU DESKTOP: Nascondi hamburger e disabilita click sull'header */
-.menu-icon-container {
-    display: none !important;
+.rank-badge {
+    font-weight: bold;
+    margin-right: 8px;
+    font-size: 1.1rem;
 }
 
-.panel-header {
-    pointer-events: none; /* Non cliccabile */
-    cursor: default;
+.rank-1 { color: #FFD700; } /* Oro */
+.rank-2 { color: #C0C0C0; } /* Argento */
+.rank-3 { color: #CD7F32; } /* Bronzo */
+
+.user-score {
+    font-weight: 600;
+    color: #3b82f6;
+    background: #eff6ff;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 0.8rem;
 }
 
-/* Riabilita il click per il nome utente e i bottoni (logout/delete) che sono dentro l'header */
-.user-header-row {
-    pointer-events: auto;
+/* Pulsante Classifica Mobile */
+.mobile-leaderboard-btn {
+    display: none; /* Nascosto su desktop */
+    width: 100%;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 12px;
+    border-radius: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    background-color: #fff7ed; /* Arancio chiaro */
+    color: #ea580c;
+    border: 1px solid #fed7aa;
+    margin-bottom: 10px;
 }
 
-/* 2. SU MOBILE: Riabilita tutto (sovrascrive le regole sopra) */
+/* --- ADATTAMENTO MOBILE --- */
 @media (max-width: 768px) {
-    .menu-icon-container {
-        display: flex !important;
+    /* Nascondi il pannello laterale destro su mobile */
+    .leaderboard-panel {
+        display: none;
     }
 
-    .panel-header {
-        pointer-events: auto; /* Cliccabile per aprire/chiudere */
-        cursor: pointer;
+    /* Mostra il bottone nel menu */
+    .mobile-leaderboard-btn {
+        display: flex;
     }
+}
+
+/* --- BOTTONE GPS --- */
+.gps-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 10px;
+    background-color: #fff;
+    color: #3b82f6; /* Blu come il puntino della posizione */
+    border: 1px solid #3b82f6;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'Poppins', sans-serif;
+}
+
+.gps-btn:hover {
+    background-color: #f0f9ff;
+    box-shadow: 0 2px 5px rgba(59, 130, 246, 0.2);
+}
+
+.gps-btn:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}
+
+/* --- OBIETTIVI / ACHIEVEMENTS --- */
+
+.achievements-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+
+    /* Aumentiamo l'altezza massima su desktop per vedere più obiettivi */
+    max-height: 70vh;
+
+    overflow-y: auto;
+
+    /* Aggiungiamo padding interno (sopra/sotto/lati)
+       così le ombre delle card non vengono tagliate */
+    padding: 15px;
+
+    /* Compensa il padding per allineare le scrollbar ai bordi */
+    margin: 5px -10px -10px;
+}
+
+.achievement-card {
+    display: flex;
+    align-items: center;
+    padding: 12px;
+    border-radius: 12px;
+    background: #fff;
+    border: 1px solid #eee;
+    transition: all 0.2s;
+    text-align: left;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Stile SBLOCCATO */
+.achievement-card.unlocked {
+    border-color: #d1fae5;
+    background: linear-gradient(to right, #ffffff, #f0fdf4);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    padding: 25px;
+}
+
+/* Stile BLOCCATO */
+.achievement-card.locked {
+    opacity: 0.7;
+    background: #f9fafb;
+    border-color: #f3f4f6;
+    padding: 25px;
+}
+
+/* Icona */
+.ach-icon-container {
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 15px;
+    flex-shrink: 0;
+    background: white;
+    border: 1px solid #eee;
+}
+
+.achievement-card.unlocked .ach-icon-container {
+    background: #fff;
+    border-color: #bbf7d0;
+}
+
+.achievement-card.locked .ach-icon-container {
+    background: #e5e7eb;
+    color: #9ca3af; /* Grigio scuro per icona */
+}
+
+/* Testi */
+.ach-info h4 { margin: 0 0 3px 0; font-size: 0.95rem; color: #333; }
+.ach-info p { margin: 0; font-size: 0.75rem; color: #666; }
+
+/* Lucchetto overlay */
+.lock-icon {
+    margin-left: auto; /* Spinge a destra */
+    color: #cbd5e1;
+}
+
+.achievement-card.unlocked .lock-icon {
+    display: none;
 }

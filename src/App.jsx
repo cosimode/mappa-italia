@@ -4,6 +4,7 @@ import { MapContainer, TileLayer, GeoJSON } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import * as topojson from 'topojson-client';
+import { ACHIEVEMENTS_LIST, calculateAchievements } from './utils/achievements.jsx';
 import './App.css';
 
 // Importazioni Modulari
@@ -21,23 +22,31 @@ const PALETTE = [
 ];
 
 function App() {
-    // --- STATO ---
+    // --- STATO GENERALE ---
     const [session, setSession] = useState(null);
     const [geoData, setGeoData] = useState(null);
     const [visited, setVisited] = useState({});
     const [selectedColor, setSelectedColor] = useState(PALETTE[0].color);
 
-    // Stato Mobile
+    // --- STATO CLASSIFICA (LEADERBOARD) ---
+    const [leaderboard, setLeaderboard] = useState([]);
+    const [leaderboardModal, setLeaderboardModal] = useState(false);
+
+    // --- STATO OBIETTIVI (ACHIEVEMENTS) ---
+    const [achievementsModal, setAchievementsModal] = useState(false);
+    const [unlockedAchievements, setUnlockedAchievements] = useState([]);
+
+    // --- STATO UI MOBILE ---
     const [isMobilePanelOpen, setIsMobilePanelOpen] = useState(false);
 
-    // Dati per Statistiche
+    // --- STATO DATI GEOGRAFICI & STATISTICHE ---
     const [regions, setRegions] = useState([]);
     const [provinces, setProvinces] = useState([]);
     const [statsResults, setStatsResults] = useState([]);
     const [statsType, setStatsType] = useState('region');
     const [statsSelection, setStatsSelection] = useState('');
 
-    // Ricerca e Mappa
+    // --- STATO RICERCA E MAPPA ---
     const [searchText, setSearchText] = useState('');
     const [searchResults, setSearchResults] = useState([]);
     const [mapCenter, setMapCenter] = useState(null);
@@ -52,13 +61,13 @@ function App() {
     const [authMessage, setAuthMessage] = useState(null);
     const [authError, setAuthError] = useState(false);
 
-    // --- STATO DEI MODALI ---
+    // --- STATO MODALI ---
     const [modal, setModal] = useState({ isOpen: false, type: null, feature: null });
     const [statsModal, setStatsModal] = useState(false);
     const [visitDate, setVisitDate] = useState('');
     const [useDate, setUseDate] = useState(false);
 
-    // Refs
+    // --- REFS ---
     const visitedRef = useRef({});
     useEffect(() => { visitedRef.current = visited; }, [visited]);
     const colorRef = useRef(selectedColor);
@@ -68,12 +77,21 @@ function App() {
     const sessionRef = useRef(null);
     useEffect(() => { sessionRef.current = session; }, [session]);
 
-    // CALCOLO PROGRESS BAR
+    // --- CALCOLI ---
     const totalComuni = geoData ? geoData.features.length : 7904;
     const visitedCount = Object.keys(visited).length;
     const progressPercentage = totalComuni > 0 ? ((visitedCount / totalComuni) * 100).toFixed(2) : 0;
 
-    // 1. INIT & AUTH
+    // --- EFFETTO CALCOLO OBIETTIVI ---
+    // (Spostato qui in alto insieme agli altri useEffect logici)
+    useEffect(() => {
+        if(modal.isOpen || achievementsModal) {
+            const unlocked = calculateAchievements(visited, geoData);
+            setUnlockedAchievements(unlocked);
+        }
+    }, [visited, geoData, achievementsModal, modal.isOpen]);
+
+    // 1. INIT & AUTH & LEADERBOARD
     useEffect(() => {
         supabase.auth.getSession().then(({ data: { session } }) => {
             setSession(session);
@@ -88,10 +106,26 @@ function App() {
                 setVisited({});
             }
         });
+
+        // Carica la classifica all'avvio
+        fetchLeaderboard();
+
         return () => subscription.unsubscribe();
     }, []);
 
-    // 2. CARICA I DATI DAL DATABASE
+    // 2. FETCH CLASSIFICA
+    const fetchLeaderboard = async () => {
+        try {
+            const { data, error } = await supabase.rpc('get_leaderboard');
+            if (!error && data) {
+                setLeaderboard(data);
+            }
+        } catch (err) {
+            console.error("Errore classifica:", err);
+        }
+    };
+
+    // 3. CARICA I DATI DAL DATABASE
     const fetchVisitedPlaces = async (userId) => {
         const { data, error } = await supabase
             .from('visited_places')
@@ -109,7 +143,7 @@ function App() {
         }
     };
 
-    // 3. CARICAMENTO MAPPA
+    // 4. CARICAMENTO MAPPA
     useEffect(() => {
         fetch('https://raw.githubusercontent.com/openpolis/geojson-italy/master/topojson/limits_IT_municipalities.topo.json')
             .then(res => res.json())
@@ -180,14 +214,67 @@ function App() {
         } else {
             await supabase.auth.signOut();
             setSession(null);
-            alert("Account eliminato correttamente. Ci dispiace vederti andare via!");
+            alert("Account eliminato correttamente.");
         }
         setLoading(false);
     };
 
     const handleLogout = async () => await supabase.auth.signOut();
 
-    // 4. LOGICA STATISTICHE
+    // --- FUNZIONE GPS (POTENZIATA) ---
+    const handleGPS = () => {
+        if (!navigator.geolocation) {
+            alert("Il tuo browser non supporta il GPS.");
+            return;
+        }
+        if (!geoData) return;
+
+        setLoading(true);
+
+        // Opzioni per forzare la massima precisione
+        const options = {
+            enableHighAccuracy: true, // Usa GPS reale se disponibile
+            timeout: 10000,           // Aspetta fino a 10 secondi per avere il segnale migliore
+            maximumAge: 0             // IMPORTANTE: Ignora la posizione vecchia in cache
+        };
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const { latitude, longitude, accuracy } = position.coords;
+
+                console.log(`Precisione rilevata: ${accuracy} metri`);
+
+                // Cerca il comune corrispondente
+                const foundFeature = geoData.features.find(feature =>
+                    isPointInFeature(latitude, longitude, feature)
+                );
+
+                setLoading(false);
+
+                if (foundFeature) {
+                    handleMapClick(foundFeature);
+
+                    // Zooma sul comune trovato
+                    const layer = L.geoJSON(foundFeature);
+                    setMapCenter(layer.getBounds().getCenter());
+                } else {
+                    alert("Non riesco a trovare il comune esatto. Riprova vicino a una finestra!");
+                }
+            },
+            (error) => {
+                setLoading(false);
+                console.error(error);
+                let errorMsg = "Errore GPS.";
+                if (error.code === 1) errorMsg = "Permesso GPS negato.";
+                if (error.code === 2) errorMsg = "Segnale GPS assente (sei al chiuso?).";
+                if (error.code === 3) errorMsg = "Tempo scaduto per il GPS.";
+                alert(errorMsg);
+            },
+            options // Passiamo le nuove opzioni
+        );
+    };
+
+    // 5. LOGICA STATISTICHE UTENTE
     useEffect(() => {
         if (!geoData || !statsSelection) {
             setStatsResults([]);
@@ -213,7 +300,7 @@ function App() {
         });
     }, [statsSelection, statsType, geoData, visited]);
 
-    // 5. GESTIONE MAPPA
+    // 6. GESTIONE MAPPA
     const handleMapClick = (feature) => {
         if (!sessionRef.current) {
             setIsMobilePanelOpen(true);
@@ -237,9 +324,13 @@ function App() {
         setVisited(prev => ({ ...prev, [id]: { color: color, date: dateToSave } }));
         closeModal();
 
+        // Salva e poi aggiorna la classifica globale
         await supabase
             .from('visited_places')
             .upsert([{ user_id: userId, comune_id: id, comune_name: name, color: color, visit_date: dateToSave }], { onConflict: 'user_id, comune_id' });
+
+        // Aggiorna classifica dopo un po' per dare tempo al DB
+        setTimeout(fetchLeaderboard, 1000);
     };
 
     const confirmDelete = async () => {
@@ -251,6 +342,7 @@ function App() {
         closeModal();
 
         await supabase.from('visited_places').delete().eq('user_id', userId).eq('comune_id', id);
+        setTimeout(fetchLeaderboard, 1000);
     };
 
     const closeModal = () => setModal({ isOpen: false, type: null, feature: null });
@@ -296,14 +388,95 @@ function App() {
         });
     };
 
+    // Componente Classifica (RIUTILIZZABILE)
+    const LeaderboardContent = () => (
+        <>
+            <div className="leaderboard-header">
+                {/* ICONA COPPA SVG */}
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#eab308" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{marginRight:'8px'}}>
+                    <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path>
+                    <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path>
+                    <path d="M4 22h16"></path>
+                    <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"></path>
+                    <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"></path>
+                    <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"></path>
+                </svg>
+                Top Esploratori
+            </div>
+            <ul className="leaderboard-list">
+                {leaderboard.length > 0 ? leaderboard.map((user, index) => (
+                    <li key={index} className="leaderboard-item">
+                        <div style={{display:'flex', alignItems:'center'}}>
+                            <span className={`rank-badge rank-${index + 1}`}>{index + 1}</span>
+                            <span>{user.username}</span>
+                        </div>
+                        <span className="user-score">{user.score}</span>
+                    </li>
+                )) : (
+                    <li style={{color:'#999', fontSize:'0.8rem'}}>Nessun dato ancora...</li>
+                )}
+            </ul>
+        </>
+    );
+
+    const AchievementsContent = () => {
+        // Calcoliamo la percentuale sbloccata
+        const percent = Math.round((unlockedAchievements.length / ACHIEVEMENTS_LIST.length) * 100);
+
+        return (
+            <div style={{textAlign: 'left'}}>
+                <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'15px'}}>
+                    <h3 style={{margin:0}}>I Tuoi Obiettivi</h3>
+                    <span style={{fontSize:'0.8rem', fontWeight:600, color:'#3b82f6'}}>{percent}% Completato</span>
+                </div>
+
+                {/* Progress Bar Obiettivi */}
+                <div className="progress-track" style={{marginBottom:'20px', height:'6px'}}>
+                    <div className="progress-fill" style={{ width: `${percent}%`, backgroundColor: '#3b82f6' }}/>
+                </div>
+
+                <div className="achievements-grid">
+                    {ACHIEVEMENTS_LIST.map(ach => {
+                        const isUnlocked = unlockedAchievements.includes(ach.id);
+                        return (
+                            <div key={ach.id} className={`achievement-card ${isUnlocked ? 'unlocked' : 'locked'}`}>
+                                <div className="ach-icon-container">
+                                    {isUnlocked ? ach.icon : (
+                                        // Lucchetto Grande al posto dell'icona se vuoi,
+                                        // oppure icona grigia + lucchetto piccolo a destra (scelto questo sotto)
+                                        <div style={{filter: 'grayscale(100%) opacity(0.5)'}}>{ach.icon}</div>
+                                    )}
+                                </div>
+                                <div className="ach-info">
+                                    <h4>{ach.title}</h4>
+                                    <p>{ach.desc}</p>
+                                </div>
+                                {!isUnlocked && (
+                                    <div className="lock-icon">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                                    </div>
+                                )}
+                            </div>
+                        )
+                    })}
+                </div>
+            </div>
+        );
+    };
+
     return (
         <div style={{ height: "100vh", width: "100vw", position: 'relative', overflow: 'hidden' }}>
+
+            {/* --- LEADERBOARD DESKTOP (Fissa a destra) --- */}
+            <div className="leaderboard-panel">
+                <LeaderboardContent />
+            </div>
 
             {/* SIDEBAR / BOTTOM SHEET */}
             <div className={`control-panel ${isMobilePanelOpen ? 'open' : ''}`}>
                 <div className="panel-header" onClick={() => setIsMobilePanelOpen(!isMobilePanelOpen)}>
                     <div>
-                        <h1>Diario Italia 🇮🇹</h1>
+                        <h1>Tracce 🇮🇹</h1>
                         <p className="subtitle" style={{marginBottom:0}}>
                             <span className="desktop-text">Colora i luoghi che hai visitato</span>
                             <span className="mobile-text">
@@ -328,7 +501,6 @@ function App() {
                             </span>
                             <div style={{display:'flex', gap:'5px'}}>
                                 <button onClick={handleLogout} className="btn-cancel logout-btn">Esci</button>
-                                {/* ICONA CESTINO (SVG) */}
                                 <button onClick={handleDeleteAccount} className="btn-delete logout-btn" title="Elimina Account" style={{background:'#fee2e2', color:'#ef4444', display:'flex', alignItems:'center', justifyContent:'center'}}>
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                                 </button>
@@ -369,6 +541,17 @@ function App() {
                     <div className="control-group">
                         <label>Cerca</label>
                         <input className="search-input" type="text" placeholder="Digita comune..." value={searchText} onChange={e=>setSearchText(e.target.value)}/>
+                        {/* --- NUOVO BOTTONE GPS --- */}
+                        <button onClick={handleGPS} className="gps-btn" disabled={loading} style={{marginTop:'10px'}}>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="22" y1="12" x2="18" y2="12"></line>
+                                <line x1="6" y1="12" x2="2" y2="12"></line>
+                                <line x1="12" y1="6" x2="12" y2="2"></line>
+                                <line x1="12" y1="22" x2="12" y2="18"></line>
+                            </svg>
+                            {loading ? 'Cerco posizione...' : 'Colora dove sono ora'}
+                        </button>
                         {searchResults.length > 0 && (
                             <ul className="search-results">
                                 {searchResults.map((f, i) => (
@@ -389,12 +572,29 @@ function App() {
 
                     <div className="stats" style={{borderTop:'none', paddingTop:0}}>
                         {session && (
-                            <button onClick={openStats} className="stats-button primary-btn">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line><path d="M10 6h4"></path><path d="M10 18h4"></path></svg>
-                                Vedi Statistiche
-                            </button>
+                            <>
+                                <button onClick={openStats} className="stats-button primary-btn">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line><path d="M10 6h4"></path><path d="M10 18h4"></path></svg>
+                                    Vedi Statistiche
+                                </button>
+                                <button onClick={() => setAchievementsModal(true)} className="stats-button" style={{backgroundColor: '#fff', color:'#333', border:'1px solid #ddd'}}>
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
+                                    I miei Obiettivi
+                                </button>
+                                {/* BOTTONE CLASSIFICA SOLO MOBILE */}
+                                <button onClick={() => setLeaderboardModal(true)} className="mobile-leaderboard-btn">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path>
+                                        <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path>
+                                        <path d="M4 22h16"></path>
+                                        <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"></path>
+                                        <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"></path>
+                                        <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"></path>
+                                    </svg>
+                                    Classifica Top 3
+                                </button>
+                            </>
                         )}
-                        {/* ICONA CAFFÈ (SVG) */}
                         <a href="https://ko-fi.com/depas" target="_blank" rel="noopener noreferrer" className="coffee-btn">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"></path><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path><line x1="6" y1="1" x2="6" y2="4"></line><line x1="10" y1="1" x2="10" y2="4"></line><line x1="14" y1="1" x2="14" y2="4"></line></svg>
                             Offrimi un caffè
@@ -413,7 +613,7 @@ function App() {
                 </MapContainer>
             </div>
 
-            {/* MODALE POPUP (INVARIATO) */}
+            {/* MODALE POPUP AGGIUNTA */}
             {modal.isOpen && modal.feature && (
                 <div className="modal-overlay" onClick={(e) => { if(e.target.className === 'modal-overlay') closeModal() }}>
                     <div className="modal-content">
@@ -452,7 +652,7 @@ function App() {
                 </div>
             )}
 
-            {/* MODALE STATISTICHE (INVARIATO) */}
+            {/* MODALE STATISTICHE */}
             {statsModal && (
                 <div className="modal-overlay" onClick={(e) => { if(e.target.className === 'modal-overlay') closeStats() }}>
                     <div className="modal-content" style={{maxWidth: '500px'}}>
@@ -472,8 +672,61 @@ function App() {
                     </div>
                 </div>
             )}
+
+            {/* MODALE CLASSIFICA (SOLO MOBILE) */}
+            {leaderboardModal && (
+                <div className="modal-overlay" onClick={(e) => { if(e.target.className === 'modal-overlay') setLeaderboardModal(false) }}>
+                    <div className="modal-content" style={{maxWidth: '400px'}}>
+                        <LeaderboardContent />
+                        <div className="modal-actions">
+                            <button className="btn-cancel" onClick={() => setLeaderboardModal(false)}>Chiudi</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* MODALE OBIETTIVI */}
+            {achievementsModal && (
+                <div className="modal-overlay" onClick={(e) => { if(e.target.className === 'modal-overlay') setAchievementsModal(false) }}>
+                    <div className="modal-content" style={{maxWidth: '450px'}}>
+                        <AchievementsContent />
+                        <div className="modal-actions">
+                            <button className="btn-confirm" onClick={() => setAchievementsModal(false)} style={{backgroundColor: '#333'}}>Chiudi</button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
 
 export default App;
+
+// --- FUNZIONI PER CALCOLO GEOMETRICO ---
+
+function isPointInFeature(lat, lng, feature) {
+    if (feature.geometry.type === 'Polygon') {
+        return isPointInPolygon(lat, lng, feature.geometry.coordinates[0]);
+    } else if (feature.geometry.type === 'MultiPolygon') {
+        // Controlla tutte le "isole" o parti del comune
+        for (let i = 0; i < feature.geometry.coordinates.length; i++) {
+            if (isPointInPolygon(lat, lng, feature.geometry.coordinates[i][0])) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+// Algoritmo Ray-Casting per vedere se un punto è dentro un poligono
+function isPointInPolygon(x, y, poly) {
+    let inside = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        let xi = poly[i][1], yi = poly[i][0];
+        let xj = poly[j][1], yj = poly[j][0];
+
+        let intersect = ((yi > y) !== (yj > y)) &&
+            (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+        if (intersect) inside = !inside;
+    }
+    return inside;
+}
