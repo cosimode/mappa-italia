@@ -181,7 +181,7 @@ label {
     width: 100%;
     height: 100%;
     background: rgba(0, 0, 0, 0.5);
-    z-index: 9999;
+    z-index: 10000 !important;
 
     /* QUESTI 3 SONO FONDAMENTALI PER CENTRARE */
     display: flex;
@@ -452,22 +452,31 @@ label { display: block; margin-bottom: 6px; font-size: 0.75rem; text-transform: 
 @media (max-width: 768px) {
     /* Il pannello diventa un "Bottom Sheet" */
     .control-panel {
-        top: auto;
+        position: fixed !important;
         bottom: 0;
         left: 0;
         width: 100%;
         max-height: 85vh;
         border-radius: 25px 25px 0 0;
-        padding: 15px 25px; /* Ho ridotto il padding verticale da 20 a 15px */
+        padding: 20px 25px;
         box-sizing: border-box;
 
-        /* MODIFICA 1: Altezza visibile ridotta (60px invece di 75px) */
-        transform: translateY(calc(100% - 65px));
+        /* FONDAMENTALE: Sfondo bianco e Z-Index altissimo per stare sopra la mappa */
+        background-color: #ffffff;
+        z-index: 9999 !important;
+
+        /* MODIFICA CRUCIALE: */
+        /* Alziamo il menu di 130px quando è chiuso. */
+        /* 65px erano troppo pochi e venivano coperti dalla barra del browser. */
+        transform: translateY(calc(100% - 130px));
+
         transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         border: none;
-        box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
 
-        /* MODIFICA 2: Niente scrollbar quando è chiuso! */
+        /* Ombra più scura verso l'alto per farlo risaltare sulla mappa */
+        box-shadow: 0 -5px 25px rgba(0,0,0,0.3);
+
+        /* Niente scrollbar quando è chiuso */
         overflow-y: hidden;
     }
 
@@ -476,24 +485,34 @@ label { display: block; margin-bottom: 6px; font-size: 0.75rem; text-transform: 
         transform: translateY(0);
         /* Lo scroll appare SOLO quando il pannello è aperto */
         overflow-y: auto;
+        /* Aggiungiamo padding extra in fondo per non far tagliare l'ultimo elemento */
+        padding-bottom: 80px;
     }
-}
 
     /* Header cliccabile su mobile */
     .panel-header {
         cursor: pointer;
-        padding-bottom: 10px; /* Spazio per toccare */
+        padding-bottom: 15px; /* Più spazio per il tocco */
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
     }
 
-    /* Contenitore dell'icona menu */
+    /* Contenitore dell'icona menu (Visibile solo su mobile) */
     .menu-icon-container {
-        display: none; /* Nascosto su desktop */
+        display: flex !important; /* Forza la visualizzazione su mobile */
         cursor: pointer;
         padding: 8px;
         border-radius: 50%;
+        background-color: #f8f9fa; /* Grigio chiaro per evidenziare il bottone */
         transition: background-color 0.2s;
     }
 
+    /* Nascondi la vecchia freccia se presente */
+    .mobile-toggle-icon {
+        display: none !important;
+    }
+}
     .menu-icon-container:active {
         background-color: #f0f0f0; /* Effetto click */
     }
@@ -520,6 +539,66 @@ label { display: block; margin-bottom: 6px; font-size: 0.75rem; text-transform: 
     .desktop-text {
         display: none;
     }
+}
+
+/* --- NUOVI BOTTONI ELEGANTI --- */
+
+/* Stile base per i bottoni nel footer */
+.stats-button {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 12px;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: none;
+    margin-bottom: 10px;
+}
+
+/* Bottone Statistiche (Primario - Blu scuro/Nero) */
+.primary-btn {
+    background-color: #334155;
+    color: white;
+}
+.primary-btn:hover { background-color: #1e293b; }
+
+/* Bottone Download (Secondario - Blu brillante per risaltare) */
+.download-btn {
+    background-color: #3b82f6;
+    color: white;
+}
+.download-btn:hover { background-color: #2563eb; }
+.download-btn:disabled { opacity: 0.7; cursor: wait; }
+
+
+/* Bottone Caffè (Discreto ma invitante) */
+.coffee-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 15px; /* Spazio sopra */
+    padding: 10px 20px;
+    background-color: #fffbeb; /* Giallino molto chiaro */
+    color: #92400e; /* Marrone caffè */
+    border: 1px solid #fcd34d;
+    border-radius: 50px; /* Pillola */
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+.coffee-btn:hover {
+    background-color: #fef3c7;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
 }
 
     /* AGGIORNAMENTO MEDIA QUERY MOBILE */
