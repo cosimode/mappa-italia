@@ -610,3 +610,56 @@ label {
 .achievement-card.unlocked .lock-icon {
     display: none;
 }
+
+/* --- NOTIFICA OBIETTIVO SBLOCCATO (TOAST) --- */
+.achievement-toast {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #ffffff;
+    padding: 15px 20px;
+    border-radius: 50px; /* Pillola */
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    z-index: 11000; /* Sopra a tutto, anche ai modali */
+    border: 2px solid #fbbf24; /* Bordo oro/giallo */
+    animation: slideDownFade 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    min-width: 300px;
+}
+
+/* Icona nel toast */
+.toast-icon {
+    width: 40px;
+    height: 40px;
+    background: #fffbeb;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #fcd34d;
+    flex-shrink: 0;
+}
+
+.toast-content h4 {
+    margin: 0;
+    font-size: 0.9rem;
+    color: #b45309;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.toast-content p {
+    margin: 2px 0 0 0;
+    font-size: 0.95rem;
+    color: #333;
+    font-weight: 600;
+}
+
+@keyframes slideDownFade {
+    from { top: -100px; opacity: 0; }
+    to { top: 20px; opacity: 1; }
+}

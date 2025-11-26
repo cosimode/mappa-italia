@@ -22,6 +22,9 @@ const PALETTE = [
 ];
 
 function App() {
+    // --- STATO CONDIVISIONE ---
+    const [isReadOnly, setIsReadOnly] = useState(false);
+    const [sharedUsername, setSharedUsername] = useState(null); // Per il titolo "Mappa di..."
     // --- STATO GENERALE ---
     const [session, setSession] = useState(null);
     const [geoData, setGeoData] = useState(null);
@@ -35,6 +38,8 @@ function App() {
     // --- STATO OBIETTIVI (ACHIEVEMENTS) ---
     const [achievementsModal, setAchievementsModal] = useState(false);
     const [unlockedAchievements, setUnlockedAchievements] = useState([]);
+    const [notification, setNotification] = useState(null); // <--- NUOVO
+    const isFirstRun = useRef(true); // <--- NUOVO: Serve per non mostrare notifiche appena apri il sito
 
     // --- STATO UI MOBILE ---
     const [isMobilePanelOpen, setIsMobilePanelOpen] = useState(false);
@@ -82,35 +87,79 @@ function App() {
     const visitedCount = Object.keys(visited).length;
     const progressPercentage = totalComuni > 0 ? ((visitedCount / totalComuni) * 100).toFixed(2) : 0;
 
-    // --- EFFETTO CALCOLO OBIETTIVI ---
-    // (Spostato qui in alto insieme agli altri useEffect logici)
+    // --- EFFETTO CALCOLO OBIETTIVI E NOTIFICHE (FIX CARICAMENTO) ---
     useEffect(() => {
-        if(modal.isOpen || achievementsModal) {
-            const unlocked = calculateAchievements(visited, geoData);
-            setUnlockedAchievements(unlocked);
-        }
-    }, [visited, geoData, achievementsModal, modal.isOpen]);
+        const calculated = calculateAchievements(visited, geoData);
 
-    // 1. INIT & AUTH & LEADERBOARD
-    useEffect(() => {
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            setSession(session);
-            if (session) fetchVisitedPlaces(session.user.id);
-        });
+        // FIX: SILENZIAMENTO INIZIALE
+        // Se isFirstRun è true, stiamo ancora caricando i dati vecchi.
+        // Li salviamo in silenzio senza mostrare notifiche.
+        if (isFirstRun.current) {
+            setUnlockedAchievements(calculated);
 
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-            setSession(session);
-            if (session) {
-                fetchVisitedPlaces(session.user.id);
-            } else {
-                setVisited({});
+            // Attiviamo un timer: dopo 1.5 secondi (quando il DB ha finito di caricare),
+            // l'app è pronta a notificare nuovi eventi REALI.
+            if (!isFirstRun.timerStarted) {
+                isFirstRun.timerStarted = true;
+                setTimeout(() => {
+                    isFirstRun.current = false;
+                }, 1500);
             }
-        });
+            return;
+        }
 
-        // Carica la classifica all'avvio
+        // --- DA QUI IN POI È LA LOGICA NORMALE PER LE NUOVE AZIONI ---
+        if (calculated.length > unlockedAchievements.length) {
+            const newId = calculated.find(id => !unlockedAchievements.includes(id));
+
+            if (newId) {
+                const badgeDetails = ACHIEVEMENTS_LIST.find(a => a.id === newId);
+                setNotification(badgeDetails);
+                setTimeout(() => setNotification(null), 4000);
+            }
+        }
+
+        setUnlockedAchievements(calculated);
+
+    }, [visited, geoData]);
+
+    // 1. INIT & AUTH & CONDIVISIONE
+    useEffect(() => {
+        // SPOSTATO IN CIMA: Carica la classifica subito per TUTTI (Ospiti e Proprietari)
         fetchLeaderboard();
 
-        return () => subscription.unsubscribe();
+        const params = new URLSearchParams(window.location.search);
+        const sharedUserId = params.get('u');
+        const sharedName = params.get('n');
+
+        // Variabile per gestire la disiscrizione in modo sicuro
+        let authListener = null;
+
+        if (sharedUserId) {
+            // --- MODALITÀ OSPITE ---
+            setIsReadOnly(true);
+            setSharedUsername(sharedName || 'Un viaggiatore');
+            fetchVisitedPlaces(sharedUserId);
+        } else {
+            // --- MODALITÀ PROPRIETARIO ---
+            supabase.auth.getSession().then(({ data: { session } }) => {
+                setSession(session);
+                if (session) fetchVisitedPlaces(session.user.id);
+            });
+
+            const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+                setSession(session);
+                if (session) fetchVisitedPlaces(session.user.id);
+                else setVisited({});
+            });
+            // Salviamo la sottoscrizione nella variabile invece di fare return subito
+            authListener = subscription;
+        }
+
+        // Funzione di pulizia finale corretta
+        return () => {
+            if (authListener) authListener.unsubscribe();
+        };
     }, []);
 
     // 2. FETCH CLASSIFICA
@@ -300,8 +349,18 @@ function App() {
         });
     }, [statsSelection, statsType, geoData, visited]);
 
-    // 6. GESTIONE MAPPA
+    // 6. GESTIONE MAPPA (Aggiornata per sola lettura)
     const handleMapClick = (feature) => {
+        // Se sei ospite, puoi solo vedere info, non aggiungere
+        if (isReadOnly) {
+            const id = getComuneId(feature);
+            if (visitedRef.current[id]) {
+                setModal({ isOpen: true, type: 'INFO', feature: feature });
+            }
+            return;
+        }
+
+        // Comportamento standard
         if (!sessionRef.current) {
             setIsMobilePanelOpen(true);
             return;
@@ -476,7 +535,7 @@ function App() {
             <div className={`control-panel ${isMobilePanelOpen ? 'open' : ''}`}>
                 <div className="panel-header" onClick={() => setIsMobilePanelOpen(!isMobilePanelOpen)}>
                     <div>
-                        <h1>Tracce 🇮🇹</h1>
+                        <h1>Tracce</h1>
                         <p className="subtitle" style={{marginBottom:0}}>
                             <span className="desktop-text">Colora i luoghi che hai visitato</span>
                             <span className="mobile-text">
@@ -494,7 +553,22 @@ function App() {
                 </div>
 
                 <div className="panel-content">
-                    {session && (
+
+                    {/* 1. HEADER "DI CHI È LA MAPPA" (Visibile SOLO se sei sul link condiviso) */}
+                    {isReadOnly && (
+                        <div className="user-header-row" style={{background: '#f0f9ff', padding: '10px', borderRadius: '10px', border: '1px solid #bae6fd', marginBottom: '20px'}}>
+                            <div>
+                                <span style={{fontSize: '0.7rem', color:'#0ea5e9', display:'block', fontWeight:700, letterSpacing:'0.5px'}}>L'ITALIA DI:</span>
+                                <b style={{fontSize:'1.1rem', color:'#0284c7'}}>{sharedUsername}</b>
+                            </div>
+                            <button onClick={() => window.location.href = window.location.origin + window.location.pathname} className="btn-cancel" style={{fontSize:'0.8rem', padding:'6px 12px', background:'white', border:'1px solid #bae6fd', color:'#0284c7'}}>
+                                Crea la tua
+                            </button>
+                        </div>
+                    )}
+
+                    {/* HEADER UTENTE PROPRIETARIO (Se sei loggato) */}
+                    {session && !isReadOnly && (
                         <div className="user-header-row">
                             <span className="welcome-text">
                                 Ciao <b>{session.user.user_metadata.username || session.user.email.split('@')[0]}</b>
@@ -508,7 +582,8 @@ function App() {
                         </div>
                     )}
 
-                    <div className="control-group" style={{marginTop: session ? '0' : '10px'}}>
+                    {/* 2. PERCENTUALE COMPLETAMENTO (Visibile a TUTTI) */}
+                    <div className="control-group" style={{marginTop: (session || isReadOnly) ? '0' : '10px'}}>
                         <div className="progress-label">
                             <span>Completamento</span>
                             <span>{progressPercentage}%</span>
@@ -521,7 +596,8 @@ function App() {
                         </p>
                     </div>
 
-                    {!session && (
+                    {/* FORM DI ACCESSO (Nascosto per gli ospiti) */}
+                    {!session && !isReadOnly && (
                         <div className="auth-section" style={{marginBottom: '20px'}}>
                             <div style={{display: 'flex', borderBottom: '1px solid #ddd', marginBottom: '15px'}}>
                                 <div onClick={() => { setIsLoginMode(true); setAuthMessage(null); }} style={{flex:1, padding:'10px', textAlign:'center', cursor:'pointer', fontWeight:600, borderBottom: isLoginMode ? '2px solid #333' : 'none', color: isLoginMode ? '#333' : '#999'}}>Accedi</div>
@@ -538,20 +614,19 @@ function App() {
                         </div>
                     )}
 
+                    {/* RICERCA (Utile anche per gli ospiti per vedere se hai visitato un posto) */}
                     <div className="control-group">
                         <label>Cerca</label>
                         <input className="search-input" type="text" placeholder="Digita comune..." value={searchText} onChange={e=>setSearchText(e.target.value)}/>
-                        {/* --- NUOVO BOTTONE GPS --- */}
-                        <button onClick={handleGPS} className="gps-btn" disabled={loading} style={{marginTop:'10px'}}>
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <circle cx="12" cy="12" r="10"></circle>
-                                <line x1="22" y1="12" x2="18" y2="12"></line>
-                                <line x1="6" y1="12" x2="2" y2="12"></line>
-                                <line x1="12" y1="6" x2="12" y2="2"></line>
-                                <line x1="12" y1="22" x2="12" y2="18"></line>
-                            </svg>
-                            {loading ? 'Cerco posizione...' : 'Colora dove sono ora'}
-                        </button>
+
+                        {/* GPS (Nascosto per gli ospiti) */}
+                        {!isReadOnly && (
+                            <button onClick={handleGPS} className="gps-btn" disabled={loading} style={{marginTop:'10px'}}>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="22" y1="12" x2="18" y2="12"></line><line x1="6" y1="12" x2="2" y2="12"></line><line x1="12" y1="6" x2="12" y2="2"></line><line x1="12" y1="22" x2="12" y2="18"></line></svg>
+                                {loading ? 'Cerco posizione...' : 'Colora dove sono ora'}
+                            </button>
+                        )}
+
                         {searchResults.length > 0 && (
                             <ul className="search-results">
                                 {searchResults.map((f, i) => (
@@ -561,17 +636,21 @@ function App() {
                         )}
                     </div>
 
-                    <div className="control-group">
-                        <label>Colore Pennarello</label>
-                        <div className="color-options">
-                            {PALETTE.map((p) => (
-                                <div key={p.color} className={`color-circle ${selectedColor===p.color?'selected':''}`} style={{ backgroundColor: p.color }} onClick={() => setSelectedColor(p.color)}/>
-                            ))}
+                    {/* COLORI (Nascosti per gli ospiti) */}
+                    {!isReadOnly && (
+                        <div className="control-group">
+                            <label>Colore Pennarello</label>
+                            <div className="color-options">
+                                {PALETTE.map((p) => (
+                                    <div key={p.color} className={`color-circle ${selectedColor===p.color?'selected':''}`} style={{ backgroundColor: p.color }} onClick={() => setSelectedColor(p.color)}/>
+                                ))}
+                            </div>
                         </div>
-                    </div>
+                    )}
 
                     <div className="stats" style={{borderTop:'none', paddingTop:0}}>
-                        {session && (
+                        {/* Bottoni di gestione (Nascosti per gli ospiti) */}
+                        {session && !isReadOnly && (
                             <>
                                 <button onClick={openStats} className="stats-button primary-btn">
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line><path d="M10 6h4"></path><path d="M10 18h4"></path></svg>
@@ -581,25 +660,47 @@ function App() {
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
                                     I miei Obiettivi
                                 </button>
-                                {/* BOTTONE CLASSIFICA SOLO MOBILE */}
                                 <button onClick={() => setLeaderboardModal(true)} className="mobile-leaderboard-btn">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path>
-                                        <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path>
-                                        <path d="M4 22h16"></path>
-                                        <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"></path>
-                                        <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"></path>
-                                        <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"></path>
-                                    </svg>
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"></path><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"></path><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"></path></svg>
                                     Classifica Top 3
+                                </button>
+                                <button onClick={() => {
+                                    const url = `${window.location.origin}${window.location.pathname}?u=${session.user.id}&n=${encodeURIComponent(session.user.user_metadata.username || 'Utente')}`;
+                                    navigator.clipboard.writeText(url);
+                                    setNotification({
+                                        type: 'system',
+                                        title: 'Link Copiato',
+                                        desc: 'Indirizzo salvato negli appunti.',
+                                        icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                    });
+                                    setTimeout(() => setNotification(null), 3000);
+                                }} className="stats-button" style={{backgroundColor: '#8b5cf6', color: 'white'}}>
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+                                    Condividi Mappa
                                 </button>
                             </>
                         )}
+
+                        {/* 3. OFFRIMI UN CAFFÈ (VISIBILE A TUTTI, anche agli ospiti!) */}
                         <a href="https://ko-fi.com/depas" target="_blank" rel="noopener noreferrer" className="coffee-btn">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"></path><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path><line x1="6" y1="1" x2="6" y2="4"></line><line x1="10" y1="1" x2="10" y2="4"></line><line x1="14" y1="1" x2="14" y2="4"></line></svg>
                             Offrimi un caffè
                         </a>
-                        <div className="credits-footer">Icone di <a href="https://www.flaticon.com/" target="_blank" rel="noreferrer">Flaticon</a> & Wikimedia.</div>
+
+                        {/* FOOTER CREDITS (Visibile a tutti) */}
+                        <div className="app-footer" style={{marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '15px'}}>
+                            <p style={{margin: '0 0 5px 0', fontSize: '0.75rem', color: '#666'}}>
+                                <b>Tracce</b> v1.0 • Sviluppato da <b>Cosimo De Pasquale</b>
+                            </p>
+                            <p style={{margin: 0, fontSize: '0.65rem', color: '#999'}}>
+                                Icone by <a href="https://www.flaticon.com/" target="_blank" rel="noreferrer" style={{color:'#999'}}>Flaticon</a> • Mappa by OpenPolis
+                            </p>
+                            <div style={{marginTop: '8px', display:'flex', gap:'10px', justifyContent:'center', fontSize:'0.7rem'}}>
+                                <a href="https://github.com/cosimode" target="_blank" rel="noreferrer" style={{color:'#3b82f6', textDecoration:'none'}}>GitHub</a>
+                                <span style={{color:'#ddd'}}>|</span>
+                                <span style={{color:'#999', cursor:'help'}} title="I dati sono salvati in modo sicuro e anonimo.">Privacy Info</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -684,6 +785,7 @@ function App() {
                     </div>
                 </div>
             )}
+
             {/* MODALE OBIETTIVI */}
             {achievementsModal && (
                 <div className="modal-overlay" onClick={(e) => { if(e.target.className === 'modal-overlay') setAchievementsModal(false) }}>
@@ -692,6 +794,23 @@ function App() {
                         <div className="modal-actions">
                             <button className="btn-confirm" onClick={() => setAchievementsModal(false)} style={{backgroundColor: '#333'}}>Chiudi</button>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* NOTIFICA TOAST (GENERALE) */}
+            {notification && (
+                <div className="achievement-toast">
+                    <div className="toast-icon">
+                        {notification.icon}
+                    </div>
+                    <div className="toast-content">
+                        {/* Se è una notifica di sistema (tipo il link) usa il suo titolo,
+                            altrimenti (se è un obiettivo) scrive "Obiettivo Sbloccato!" */}
+                        <h4>{notification.type === 'system' ? notification.title : 'Obiettivo Sbloccato!'}</h4>
+
+                        {/* Se è sistema mostra la descrizione, se è un obiettivo mostra il nome del badge */}
+                        <p>{notification.desc || notification.title}</p>
                     </div>
                 </div>
             )}
