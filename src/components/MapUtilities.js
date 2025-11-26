@@ -1,17 +1,18 @@
 import { useEffect } from 'react';
 import { useMap } from 'react-leaflet';
 
-// Componente invisibile che vive dentro <MapContainer>
 function MapUtilities({ centerTo, setMapInstance }) {
     const map = useMap();
 
-    // 1. Estrae l'istanza della mappa e la passa ad App.js
-    // Questo è fondamentale per poter usare map.fitBounds() nel download
+    // 1. Estrae l'istanza della mappa SOLO SE la funzione esiste
     useEffect(() => {
-        setMapInstance(map);
+        // CORREZIONE ERRORE: Controlliamo se setMapInstance è definita prima di chiamarla
+        if (setMapInstance) {
+            setMapInstance(map);
+        }
     }, [map, setMapInstance]);
 
-    // 2. Gestisce lo zoom fluido quando cerchi un comune
+    // 2. Gestisce lo zoom fluido (questo serve per la ricerca)
     useEffect(() => {
         if (centerTo) {
             const zoomLevel = window.innerWidth < 768 ? 9 : 11;

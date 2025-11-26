@@ -8,7 +8,6 @@ import './App.css';
 
 // Importazioni Modulari
 import MapUtilities from './components/MapUtilities';
-import { handleDownloadLogic } from './utils/mapCapture';
 
 const PALETTE = [
     { color: '#FF5733', name: 'Coral' },
@@ -27,11 +26,6 @@ function App() {
     const [geoData, setGeoData] = useState(null);
     const [visited, setVisited] = useState({});
     const [selectedColor, setSelectedColor] = useState(PALETTE[0].color);
-
-    // --- NUOVI STATI PER GESTIONE MAPPA AVANZATA ---
-    const [mapInstance, setMapInstance] = useState(null);
-    // Confini Italia (Lat/Lon) per il download perfetto
-    const ITALY_BOUNDS = useRef([[36.0, 6.0], [47.5, 19.0]]).current;
 
     // Stato Mobile
     const [isMobilePanelOpen, setIsMobilePanelOpen] = useState(false);
@@ -73,9 +67,6 @@ function App() {
     useEffect(() => { highlightRef.current = highlightedId; }, [highlightedId]);
     const sessionRef = useRef(null);
     useEffect(() => { sessionRef.current = session; }, [session]);
-
-    // Ref per il contenitore della mappa (usato per html2canvas)
-    const mapContainerRef = useRef(null);
 
     // CALCOLO PROGRESS BAR
     const totalComuni = geoData ? geoData.features.length : 7904;
@@ -166,7 +157,7 @@ function App() {
                 });
                 if (error) throw error;
                 if (!data.session) {
-                    setAuthMessage("✅ Controlla la tua email per confermare l'account.");
+                    setAuthMessage("Controlla la tua email per confermare l'account.");
                     setAuthError(false);
                 }
             }
@@ -305,45 +296,6 @@ function App() {
         });
     };
 
-    // --- FUNZIONE SCARICA MAPPA (BRIDGE TRA APP E UTILS) ---
-    const handleDownloadMap = async () => {
-        if (!mapContainerRef.current || !mapInstance) {
-            alert("Attendi che la mappa sia caricata.");
-            return;
-        }
-        setLoading(true);
-
-        const siteUrl = 'cosimode.github.io/mappa-italia';
-
-        // 1. Salva lo stato attuale (zoom, stile, centro)
-        const originalCenter = mapInstance.getCenter();
-        const originalZoom = mapInstance.getZoom();
-        const originalStyle = mapContainerRef.current.style.cssText;
-
-        try {
-            // Chiama la funzione potente esterna
-            await handleDownloadLogic({
-                mapInstance,
-                mapContainerRef,
-                originalStyle,
-                originalCenter,
-                originalZoom,
-                IT_BOUNDS,
-                siteUrl
-            });
-        } catch (err) {
-            console.error("Errore download:", err);
-            alert("Errore durante il salvataggio.");
-        } finally {
-            // 2. Ripristina tutto com'era prima
-            // Questo è fondamentale: se non lo fai, la mappa resta nascosta e deformata!
-            mapContainerRef.current.style.cssText = originalStyle;
-            mapInstance.invalidateSize(true);
-            mapInstance.setView(originalCenter, originalZoom, { animate: false });
-            setLoading(false);
-        }
-    };
-
     return (
         <div style={{ height: "100vh", width: "100vw", position: 'relative', overflow: 'hidden' }}>
 
@@ -372,11 +324,14 @@ function App() {
                     {session && (
                         <div className="user-header-row">
                             <span className="welcome-text">
-                                Ciao, <b>{session.user.user_metadata.username || session.user.email.split('@')[0]}</b>
+                                Ciao <b>{session.user.user_metadata.username || session.user.email.split('@')[0]}</b>
                             </span>
                             <div style={{display:'flex', gap:'5px'}}>
                                 <button onClick={handleLogout} className="btn-cancel logout-btn">Esci</button>
-                                <button onClick={handleDeleteAccount} className="btn-delete logout-btn" title="Elimina Account" style={{background:'#fee2e2', color:'#ef4444'}}>🗑️</button>
+                                {/* ICONA CESTINO (SVG) */}
+                                <button onClick={handleDeleteAccount} className="btn-delete logout-btn" title="Elimina Account" style={{background:'#fee2e2', color:'#ef4444', display:'flex', alignItems:'center', justifyContent:'center'}}>
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                </button>
                             </div>
                         </div>
                     )}
@@ -434,19 +389,15 @@ function App() {
 
                     <div className="stats" style={{borderTop:'none', paddingTop:0}}>
                         {session && (
-                            <>
-                                <button onClick={openStats} className="stats-button primary-btn">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line><path d="M10 6h4"></path><path d="M10 18h4"></path></svg>
-                                    Vedi Statistiche
-                                </button>
-                                <button onClick={handleDownloadMap} className="stats-button download-btn" disabled={loading}>
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                                    {loading ? 'Creazione immagine...' : 'Scarica la mia Mappa'}
-                                </button>
-                            </>
+                            <button onClick={openStats} className="stats-button primary-btn">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line><path d="M10 6h4"></path><path d="M10 18h4"></path></svg>
+                                Vedi Statistiche
+                            </button>
                         )}
-                        <a href="https://ko-fi.com/IL_TUO_LINK_KOFI" target="_blank" rel="noopener noreferrer" className="coffee-btn">
-                            <span style={{fontSize:'1.2rem'}}>☕</span> Offrimi un caffè
+                        {/* ICONA CAFFÈ (SVG) */}
+                        <a href="https://ko-fi.com/depas" target="_blank" rel="noopener noreferrer" className="coffee-btn">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"></path><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path><line x1="6" y1="1" x2="6" y2="4"></line><line x1="10" y1="1" x2="10" y2="4"></line><line x1="14" y1="1" x2="14" y2="4"></line></svg>
+                            Offrimi un caffè
                         </a>
                         <div className="credits-footer">Icone di <a href="https://www.flaticon.com/" target="_blank" rel="noreferrer">Flaticon</a> & Wikimedia.</div>
                     </div>
@@ -454,16 +405,15 @@ function App() {
             </div>
 
             {/* CONTENITORE MAPPA */}
-            <div ref={mapContainerRef} style={{ height: "100%", width: "100%", position: 'relative', zIndex: 1 }}>
+            <div style={{ height: "100%", width: "100%", position: 'relative', zIndex: 1 }}>
                 <MapContainer center={[42.0, 12.5]} zoom={6} style={{ height: "100%", width: "100%", backgroundColor: '#eef2f3' }} minZoom={5} zoomControl={false}>
-                    {/* Componente Utility che espone l'istanza della mappa */}
-                    <MapUtilities centerTo={mapCenter} setMapInstance={setMapInstance} />
+                    <MapUtilities centerTo={mapCenter} />
                     <TileLayer attribution='' url="" />
                     {geoData && <GeoJSON key={highlightedId || 'initial'} data={geoData} style={style} onEachFeature={onEachFeature} />}
                 </MapContainer>
             </div>
 
-            {/* MODALE POPUP */}
+            {/* MODALE POPUP (INVARIATO) */}
             {modal.isOpen && modal.feature && (
                 <div className="modal-overlay" onClick={(e) => { if(e.target.className === 'modal-overlay') closeModal() }}>
                     <div className="modal-content">
@@ -502,7 +452,7 @@ function App() {
                 </div>
             )}
 
-            {/* MODALE STATISTICHE */}
+            {/* MODALE STATISTICHE (INVARIATO) */}
             {statsModal && (
                 <div className="modal-overlay" onClick={(e) => { if(e.target.className === 'modal-overlay') closeStats() }}>
                     <div className="modal-content" style={{maxWidth: '500px'}}>

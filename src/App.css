@@ -701,3 +701,32 @@ label { display: block; margin-bottom: 6px; font-size: 0.75rem; text-transform: 
 .stats-button svg {
     margin-right: 5px;
 }
+
+/* --- PATCH CORRETTIVA MENU --- */
+
+/* 1. SU DESKTOP: Nascondi hamburger e disabilita click sull'header */
+.menu-icon-container {
+    display: none !important;
+}
+
+.panel-header {
+    pointer-events: none; /* Non cliccabile */
+    cursor: default;
+}
+
+/* Riabilita il click per il nome utente e i bottoni (logout/delete) che sono dentro l'header */
+.user-header-row {
+    pointer-events: auto;
+}
+
+/* 2. SU MOBILE: Riabilita tutto (sovrascrive le regole sopra) */
+@media (max-width: 768px) {
+    .menu-icon-container {
+        display: flex !important;
+    }
+
+    .panel-header {
+        pointer-events: auto; /* Cliccabile per aprire/chiudere */
+        cursor: pointer;
+    }
+}
