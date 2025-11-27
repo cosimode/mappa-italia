@@ -41,6 +41,19 @@ function App() {
     const [notification, setNotification] = useState(null); // <--- NUOVO
     const isFirstRun = useRef(true); // <--- NUOVO: Serve per non mostrare notifiche appena apri il sito
 
+    // Ref per il "Silenzio Stampa"
+    const isSilenced = useRef(true);
+
+    // RESETTA IL SILENZIATORE AL LOGIN
+    // Ogni volta che cambia la sessione (login/logout), attiviamo il silenzio per 2.5 secondi
+    useEffect(() => {
+        isSilenced.current = true;
+        const timer = setTimeout(() => {
+            isSilenced.current = false;
+        }, 2500);
+        return () => clearTimeout(timer);
+    }, [session]);
+
     // --- STATO UI MOBILE ---
     const [isMobilePanelOpen, setIsMobilePanelOpen] = useState(false);
 
@@ -69,6 +82,7 @@ function App() {
     // --- STATO MODALI ---
     const [modal, setModal] = useState({ isOpen: false, type: null, feature: null });
     const [statsModal, setStatsModal] = useState(false);
+    const [infoModal, setInfoModal] = useState(false);
     const [visitDate, setVisitDate] = useState('');
     const [useDate, setUseDate] = useState(false);
 
@@ -87,28 +101,18 @@ function App() {
     const visitedCount = Object.keys(visited).length;
     const progressPercentage = totalComuni > 0 ? ((visitedCount / totalComuni) * 100).toFixed(2) : 0;
 
-    // --- EFFETTO CALCOLO OBIETTIVI E NOTIFICHE (FIX CARICAMENTO) ---
+    // --- EFFETTO CALCOLO OBIETTIVI E NOTIFICHE ---
     useEffect(() => {
         const calculated = calculateAchievements(visited, geoData);
 
-        // FIX: SILENZIAMENTO INIZIALE
-        // Se isFirstRun è true, stiamo ancora caricando i dati vecchi.
-        // Li salviamo in silenzio senza mostrare notifiche.
-        if (isFirstRun.current) {
+        // Se siamo in fase di "Silenzio" (Appena aperto o Appena loggato)
+        // Salviamo lo stato SENZA mostrare notifiche.
+        if (isSilenced.current) {
             setUnlockedAchievements(calculated);
-
-            // Attiviamo un timer: dopo 1.5 secondi (quando il DB ha finito di caricare),
-            // l'app è pronta a notificare nuovi eventi REALI.
-            if (!isFirstRun.timerStarted) {
-                isFirstRun.timerStarted = true;
-                setTimeout(() => {
-                    isFirstRun.current = false;
-                }, 1500);
-            }
             return;
         }
 
-        // --- DA QUI IN POI È LA LOGICA NORMALE PER LE NUOVE AZIONI ---
+        // Logica normale: se c'è un nuovo obiettivo, mostra notifica
         if (calculated.length > unlockedAchievements.length) {
             const newId = calculated.find(id => !unlockedAchievements.includes(id));
 
@@ -684,19 +688,24 @@ function App() {
                         {/* 3. OFFRIMI UN CAFFÈ (VISIBILE A TUTTI, anche agli ospiti!) */}
                         <a href="https://ko-fi.com/depas" target="_blank" rel="noopener noreferrer" className="coffee-btn">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"></path><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path><line x1="6" y1="1" x2="6" y2="4"></line><line x1="10" y1="1" x2="10" y2="4"></line><line x1="14" y1="1" x2="14" y2="4"></line></svg>
-                            Offrimi un caffè
+                            Sostienimi
                         </a>
 
                         {/* FOOTER CREDITS (Visibile a tutti) */}
                         <div className="app-footer" style={{marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '15px'}}>
                             <p style={{margin: '0 0 5px 0', fontSize: '0.75rem', color: '#666'}}>
-                                <b>Tracce</b> v1.0 • Sviluppato da <b>Cosimo De Pasquale</b>
+                                <b>Tracce</b> v1.0 • Sviluppato da <b>CoDe</b>
                             </p>
                             <p style={{margin: 0, fontSize: '0.65rem', color: '#999'}}>
                                 Icone by <a href="https://www.flaticon.com/" target="_blank" rel="noreferrer" style={{color:'#999'}}>Flaticon</a> • Mappa by OpenPolis
                             </p>
-                            <div style={{marginTop: '8px', display:'flex', gap:'10px', justifyContent:'center', fontSize:'0.7rem'}}>
+                            <div style={{marginTop: '8px', display:'flex', gap:'10px', justifyContent:'center', fontSize:'0.7rem', flexWrap:'wrap'}}>
                                 <a href="https://github.com/cosimode" target="_blank" rel="noreferrer" style={{color:'#3b82f6', textDecoration:'none'}}>GitHub</a>
+                                <span style={{color:'#ddd'}}>|</span>
+                                {/* NUOVO LINK REGOLE */}
+                                <span onClick={() => setInfoModal(true)} style={{color:'#3b82f6', cursor:'pointer', fontWeight:600}}>
+                                    Cosa vale come visita?
+                                </span>
                                 <span style={{color:'#ddd'}}>|</span>
                                 <span style={{color:'#999', cursor:'help'}} title="I dati sono salvati in modo sicuro e anonimo.">Privacy Info</span>
                             </div>
@@ -811,6 +820,48 @@ function App() {
 
                         {/* Se è sistema mostra la descrizione, se è un obiettivo mostra il nome del badge */}
                         <p>{notification.desc || notification.title}</p>
+                    </div>
+                </div>
+            )}
+
+            {/* MODALE REGOLE "VISITATO" (Testo Originale + Scroll) */}
+            {infoModal && (
+                <div className="modal-overlay" onClick={(e) => { if(e.target.className === 'modal-overlay') setInfoModal(false) }}>
+                    {/* AGGIUNTO: maxHeight e overflowY per lo scorrimento */}
+                    <div className="modal-content" style={{maxWidth: '450px', textAlign:'left', maxHeight: '80vh', overflowY: 'auto'}}>
+
+                        <div style={{display:'flex', alignItems:'center', gap:'10px', marginBottom:'15px'}}>
+                            <div style={{background:'#e0f2fe', padding:'8px', borderRadius:'50%', color:'#0284c7', flexShrink:0}}>
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                            </div>
+                            <h3 style={{margin:0}}>Definizione di "Visita"</h3>
+                        </div>
+
+                        <p style={{fontSize:'0.9rem', color:'#444', lineHeight:'1.5'}}>
+                            Per rendere la tua mappa veritiera, seguiamo le linee guida internazionali dei viaggiatori (ispirate a <a href="https://nomadmania.com/minimal-visit/" target="_blank" rel="noreferrer" style={{color:'#3b82f6'}}>NomadMania</a>).
+                        </p>
+
+                        <div style={{background:'#f8fafc', padding:'15px', borderRadius:'10px', border:'1px solid #e2e8f0', margin:'15px 0'}}>
+                            <h4 style={{margin:'0 0 10px 0', fontSize:'0.95rem', color:'#1e293b'}}>✅ Conta come visita se:</h4>
+                            <ul style={{margin:0, paddingLeft:'20px', fontSize:'0.85rem', color:'#334155', display:'flex', flexDirection:'column', gap:'8px'}}>
+                                <li>Hai <strong>toccato terra</strong> e fatto qualcosa di significativo (non basta fermarsi al semaforo!).</li>
+                                <li>Hai interagito con il luogo (es. preso un caffè al bar, visitato la piazza principale, fatto una passeggiata).</li>
+                                <li>Hai visitato un museo, un monumento o un negozio locale.</li>
+                            </ul>
+                        </div>
+
+                        <div style={{background:'#fef2f2', padding:'15px', borderRadius:'10px', border:'1px solid #fecaca'}}>
+                            <h4 style={{margin:'0 0 10px 0', fontSize:'0.95rem', color:'#991b1b'}}>❌ NON conta se:</h4>
+                            <ul style={{margin:0, paddingLeft:'20px', fontSize:'0.85rem', color:'#7f1d1d', display:'flex', flexDirection:'column', gap:'8px'}}>
+                                <li>Sei solo passato in auto/treno/bus senza scendere.</li>
+                                <li>Sei passato in autostrada o tangenziale.</li>
+                                <li>Hai fatto solo scalo in aeroporto senza uscire.</li>
+                            </ul>
+                        </div>
+
+                        <div className="modal-actions">
+                            <button className="btn-confirm" onClick={() => setInfoModal(false)} style={{backgroundColor: '#333', width:'100%'}}>Ho capito, sarò onesto!</button>
+                        </div>
                     </div>
                 </div>
             )}
