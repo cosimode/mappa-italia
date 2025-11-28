@@ -455,7 +455,6 @@ function App() {
     const LeaderboardContent = () => (
         <>
             <div className="leaderboard-header">
-                {/* ICONA COPPA SVG */}
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#eab308" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{marginRight:'8px'}}>
                     <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path>
                     <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path>
@@ -468,10 +467,21 @@ function App() {
             </div>
             <ul className="leaderboard-list">
                 {leaderboard.length > 0 ? leaderboard.map((user, index) => (
-                    <li key={index} className="leaderboard-item">
+                    <li
+                        key={index}
+                        className="leaderboard-item"
+                        title="Clicca per vedere la mappa"
+                        style={{cursor: 'pointer', transition: 'background 0.2s'}}
+                        // QUANDO CLICCHI, VAI ALLA SUA MAPPA
+                        onClick={() => {
+                            window.location.href = `${window.location.pathname}?u=${user.user_id}&n=${encodeURIComponent(user.username)}`;
+                        }}
+                        onMouseOver={(e) => e.currentTarget.style.background = '#f0f9ff'}
+                        onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+                    >
                         <div style={{display:'flex', alignItems:'center'}}>
                             <span className={`rank-badge rank-${index + 1}`}>{index + 1}</span>
-                            <span>{user.username}</span>
+                            <span style={{fontWeight:500, color: '#333'}}>{user.username}</span>
                         </div>
                         <span className="user-score">{user.score}</span>
                     </li>
@@ -479,6 +489,9 @@ function App() {
                     <li style={{color:'#999', fontSize:'0.8rem'}}>Nessun dato ancora...</li>
                 )}
             </ul>
+            <div style={{fontSize:'0.7rem', color:'#999', marginTop:'10px', textAlign:'center', fontStyle:'italic'}}>
+                Clicca su un utente per vedere la sua mappa! 🗺️
+            </div>
         </>
     );
 
@@ -691,23 +704,34 @@ function App() {
                             Sostienimi
                         </a>
 
-                        {/* FOOTER CREDITS (Visibile a tutti) */}
-                        <div className="app-footer" style={{marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '15px'}}>
+                        {/* FOOTER MIGLIORATO E ALLINEATO */}
+                        <div className="app-footer" style={{marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '15px', textAlign: 'center'}}>
                             <p style={{margin: '0 0 5px 0', fontSize: '0.75rem', color: '#666'}}>
                                 <b>Tracce</b> v1.0 • Sviluppato da <b>CoDe</b>
                             </p>
-                            <p style={{margin: 0, fontSize: '0.65rem', color: '#999'}}>
+                            <p style={{margin: '0 0 10px 0', fontSize: '0.65rem', color: '#999'}}>
                                 Icone by <a href="https://www.flaticon.com/" target="_blank" rel="noreferrer" style={{color:'#999'}}>Flaticon</a> • Mappa by OpenPolis
                             </p>
-                            <div style={{marginTop: '8px', display:'flex', gap:'10px', justifyContent:'center', fontSize:'0.7rem', flexWrap:'wrap'}}>
-                                <a href="https://github.com/cosimode" target="_blank" rel="noreferrer" style={{color:'#3b82f6', textDecoration:'none'}}>GitHub</a>
-                                <span style={{color:'#ddd'}}>|</span>
-                                {/* NUOVO LINK REGOLE */}
-                                <span onClick={() => setInfoModal(true)} style={{color:'#3b82f6', cursor:'pointer', fontWeight:600}}>
+
+                            {/* MENU LINK: Uso Flexbox con gap per allineamento perfetto */}
+                            <div style={{
+                                display: 'flex',
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                                flexWrap: 'wrap',       /* Permette di andare a capo */
+                                gap: '15px',            /* Spazio tra gli elementi */
+                                rowGap: '5px',          /* Spazio tra le righe se va a capo */
+                                fontSize: '0.75rem'
+                            }}>
+                                <a href="https://github.com/cosimode" target="_blank" rel="noreferrer" style={{color:'#3b82f6', textDecoration:'none', fontWeight: 500}}>GitHub</a>
+
+                                <span onClick={() => setInfoModal(true)} style={{color:'#3b82f6', cursor:'pointer', fontWeight: 600}}>
                                     Cosa vale come visita?
                                 </span>
-                                <span style={{color:'#ddd'}}>|</span>
-                                <span style={{color:'#999', cursor:'help'}} title="I dati sono salvati in modo sicuro e anonimo.">Privacy Info</span>
+
+                                <span style={{color:'#999', cursor:'help', borderBottom: '1px dotted #999'}} title="I dati sono salvati in modo sicuro e anonimo.">
+                                    Privacy
+                                </span>
                             </div>
                         </div>
                     </div>
